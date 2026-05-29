@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -46,7 +47,10 @@ export const appRouter = router({
           longitude: z.string(),
         })
       )
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
+        if (ctx.user?.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
         return createNestBox({
           cajaId: input.cajaId,
           instalacion: input.instalacion,
@@ -68,13 +72,19 @@ export const appRouter = router({
           }),
         })
       )
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
+        if (ctx.user?.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
         return updateNestBox(input.id, input.data);
       }),
     
     delete: protectedProcedure
       .input(z.number())
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
+        if (ctx.user?.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
         return deleteNestBox(input);
       }),
   }),
@@ -104,7 +114,7 @@ export const appRouter = router({
         })
       )
       .mutation(({ input, ctx }) => {
-        if (!ctx.user) throw new Error("User not authenticated");
+        if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
         return createInspection({
           ...input,
           userId: ctx.user.id,
@@ -125,16 +135,23 @@ export const appRouter = router({
           }),
         })
       )
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
+        if (ctx.user?.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
         return updateInspection(input.id, input.data);
       }),
     
     delete: protectedProcedure
       .input(z.number())
-      .mutation(({ input }) => {
+      .mutation(({ input, ctx }) => {
+        if (ctx.user?.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
         return deleteInspection(input);
       }),
   }),
 });
 
 export type AppRouter = typeof appRouter;
+

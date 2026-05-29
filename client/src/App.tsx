@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { OfflineIndicator } from "./components/OfflineIndicator";
 import Home from "./pages/Home";
 import MapView from "./pages/MapView";
 import InspectionForm from "./pages/InspectionForm";
@@ -48,6 +49,7 @@ function App() {
       >
         <TooltipProvider>
           <Toaster />
+          <OfflineIndicator />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

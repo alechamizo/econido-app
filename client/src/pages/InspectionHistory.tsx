@@ -41,7 +41,7 @@ export default function InspectionHistory() {
     if (!inspections) return [];
 
     return inspections.filter((inspection: any) => {
-      if (selectedNestBoxId && inspection.nestBoxId !== parseInt(selectedNestBoxId)) {
+      if (selectedNestBoxId && selectedNestBoxId !== "all" && inspection.nestBoxId !== parseInt(selectedNestBoxId)) {
         return false;
       }
 
@@ -140,7 +140,7 @@ export default function InspectionHistory() {
                   <SelectValue placeholder="Todas las cajas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las cajas</SelectItem>
+                  <SelectItem value="all">Todas las cajas</SelectItem>
                   {nestBoxes?.map((box: any) => (
                     <SelectItem key={box.id} value={box.id.toString()}>
                       {box.cajaId}
