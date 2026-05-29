@@ -49,16 +49,16 @@
 
 ## Módulo 6: Modo Offline
 - [x] Implementar IndexedDB para almacenamiento local de cajas e inspecciones
-- [ ] Sincronización automática al recuperar conexión
+- [x] Sincronización automática al recuperar conexión
 - [x] Indicador visual de estado online/offline
 - [x] Cola de cambios pendientes durante offline
-- [ ] Manejo de conflictos de sincronización
+- [x] Manejo de conflictos de sincronización
 
 ## Módulo 7: Historial de Inspecciones
 - [x] Vista de línea de tiempo por caja nido
 - [x] Filtros por fecha en historial
 - [x] Exportación a CSV (admin only)
-- [ ] Visualización de cambios históricos
+- [x] Visualización de cambios históricos
 
 ## UI/UX General
 - [x] Diseño responsive para dispositivos móviles en campo
@@ -69,7 +69,7 @@
 
 ## Testing y Validación
 - [x] Tests unitarios para procedimientos tRPC
-- [ ] Tests de integración para flujos offline/online
+- [x] Tests de integración para flujos offline/online
 - [x] Validación de datos GeoJSON
 - [x] Tests de permisos por rol
 
