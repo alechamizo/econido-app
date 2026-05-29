@@ -1,17 +1,33 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import MapView from "./pages/MapView";
+import InspectionForm from "./pages/InspectionForm";
+import AdminPanel from "./pages/AdminPanel";
+import Dashboard from "./pages/Dashboard";
+import InspectionHistory from "./pages/InspectionHistory";
+
+function InspectionFormRoute() {
+  const [location] = useLocation();
+  const nestBoxId = location?.split("/").pop();
+  return nestBoxId ? <InspectionForm nestBoxId={parseInt(nestBoxId)} /> : <NotFound />;
+}
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
+      <Route path="/" component={MapView} />
+      <Route path="/home" component={Home} />
+      <Route path="/inspection/:nestBoxId" component={InspectionFormRoute} />
+      <Route path="/admin" component={AdminPanel} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/history" component={InspectionHistory} />
+      <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>

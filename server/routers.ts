@@ -1,10 +1,22 @@
+import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import {
+  getNestBoxes,
+  getNestBoxById,
+  createNestBox,
+  updateNestBox,
+  deleteNestBox,
+  getInspections,
+  getInspectionById,
+  createInspection,
+  updateInspection,
+  deleteInspection,
+} from "./db";
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -17,12 +29,112 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  nestBox: router({
+    list: publicProcedure.query(() => getNestBoxes()),
+    
+    getById: publicProcedure
+      .input(z.number())
+      .query(({ input }) => getNestBoxById(input)),
+    
+    create: protectedProcedure
+      .input(
+        z.object({
+          cajaId: z.string(),
+          instalacion: z.string(),
+          tipoCaja: z.string(),
+          latitude: z.string(),
+          longitude: z.string(),
+        })
+      )
+      .mutation(({ input }) => {
+        return createNestBox({
+          cajaId: input.cajaId,
+          instalacion: input.instalacion,
+          tipoCaja: input.tipoCaja,
+          latitude: input.latitude as any,
+          longitude: input.longitude as any,
+        });
+      }),
+    
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          data: z.object({
+            instalacion: z.string().optional(),
+            tipoCaja: z.string().optional(),
+            estadoActual: z.enum(["ocupada", "vacia", "desconocido"]).optional(),
+            ultimaEspecie: z.string().optional(),
+          }),
+        })
+      )
+      .mutation(({ input }) => {
+        return updateNestBox(input.id, input.data);
+      }),
+    
+    delete: protectedProcedure
+      .input(z.number())
+      .mutation(({ input }) => {
+        return deleteNestBox(input);
+      }),
+  }),
+
+  inspection: router({
+    list: publicProcedure
+      .input(z.object({ nestBoxId: z.number().optional() }).optional())
+      .query(({ input }) => {
+        return getInspections(input?.nestBoxId);
+      }),
+    
+    getById: publicProcedure
+      .input(z.number())
+      .query(({ input }) => getInspectionById(input)),
+    
+    create: protectedProcedure
+      .input(
+        z.object({
+          nestBoxId: z.number(),
+          fecha: z.date(),
+          ocupada: z.number(),
+          especie: z.string().optional(),
+          numHuevos: z.number().optional(),
+          numPollos: z.number().optional(),
+          estadoConservacion: z.enum(["bueno", "necesita_reparacion", "caida"]).optional(),
+          observaciones: z.string().optional(),
+        })
+      )
+      .mutation(({ input, ctx }) => {
+        if (!ctx.user) throw new Error("User not authenticated");
+        return createInspection({
+          ...input,
+          userId: ctx.user.id,
+        });
+      }),
+    
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          data: z.object({
+            ocupada: z.number().optional(),
+            especie: z.string().optional(),
+            numHuevos: z.number().optional(),
+            numPollos: z.number().optional(),
+            estadoConservacion: z.enum(["bueno", "necesita_reparacion", "caida"]).optional(),
+            observaciones: z.string().optional(),
+          }),
+        })
+      )
+      .mutation(({ input }) => {
+        return updateInspection(input.id, input.data);
+      }),
+    
+    delete: protectedProcedure
+      .input(z.number())
+      .mutation(({ input }) => {
+        return deleteInspection(input);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

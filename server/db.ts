@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, nestBoxes, InsertNestBox, inspections, InsertInspection } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,81 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+/**
+ * Nest Box Queries
+ */
+export async function getNestBoxes() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(nestBoxes);
+}
+
+export async function getNestBoxById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(nestBoxes).where(eq(nestBoxes.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getNestBoxByCajaId(cajaId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(nestBoxes).where(eq(nestBoxes.cajaId, cajaId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createNestBox(data: InsertNestBox) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(nestBoxes).values(data);
+  return result;
+}
+
+export async function updateNestBox(id: number, data: Partial<InsertNestBox>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(nestBoxes).set(data).where(eq(nestBoxes.id, id));
+}
+
+export async function deleteNestBox(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(nestBoxes).where(eq(nestBoxes.id, id));
+}
+
+/**
+ * Inspection Queries
+ */
+export async function getInspections(nestBoxId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  if (nestBoxId) {
+    return db.select().from(inspections).where(eq(inspections.nestBoxId, nestBoxId));
+  }
+  return db.select().from(inspections);
+}
+
+export async function getInspectionById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(inspections).where(eq(inspections.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createInspection(data: InsertInspection) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.insert(inspections).values(data);
+}
+
+export async function updateInspection(id: number, data: Partial<InsertInspection>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(inspections).set(data).where(eq(inspections.id, id));
+}
+
+export async function deleteInspection(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(inspections).where(eq(inspections.id, id));
+}
