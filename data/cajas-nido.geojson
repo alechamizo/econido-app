@@ -1,0 +1,341 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.972184, 38.873912]
+      },
+      "properties": {
+        "cajaId": "Ext IB12-1",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.971632, 38.873455]
+      },
+      "properties": {
+        "cajaId": "Ext IB12-2",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.973014, 38.874221]
+      },
+      "properties": {
+        "cajaId": "Ext IB21-1",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.972556, 38.874008]
+      },
+      "properties": {
+        "cajaId": "Ext IB21-2",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.973422, 38.873612]
+      },
+      "properties": {
+        "cajaId": "Ext IB23",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.972901, 38.872994]
+      },
+      "properties": {
+        "cajaId": "Ext IB31",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.971955, 38.873388]
+      },
+      "properties": {
+        "cajaId": "Ext IB41-1",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.972311, 38.873721]
+      },
+      "properties": {
+        "cajaId": "Ext IB41-2",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.971784, 38.874044]
+      },
+      "properties": {
+        "cajaId": "Ext IB42-1",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.972104, 38.874312]
+      },
+      "properties": {
+        "cajaId": "Ext IB42-2",
+        "instalacion": "PSF EXT I",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.965332, 38.869844]
+      },
+      "properties": {
+        "cajaId": "Ext IIA11",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.964881, 38.870112]
+      },
+      "properties": {
+        "cajaId": "Ext IIA12",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.965114, 38.870421]
+      },
+      "properties": {
+        "cajaId": "Ext IIA21-1",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.965667, 38.869988]
+      },
+      "properties": {
+        "cajaId": "Ext IIA21-2",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.964552, 38.870633]
+      },
+      "properties": {
+        "cajaId": "Ext IIA31",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.964998, 38.869701]
+      },
+      "properties": {
+        "cajaId": "Ext IIA32-1",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.965244, 38.870055]
+      },
+      "properties": {
+        "cajaId": "Ext IIA32-2",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.965771, 38.870488]
+      },
+      "properties": {
+        "cajaId": "Ext IIA41-1",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.965401, 38.870812]
+      },
+      "properties": {
+        "cajaId": "Ext IIA41-2",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.964611, 38.869923]
+      },
+      "properties": {
+        "cajaId": "Ext IIA42-1",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.964933, 38.870267]
+      },
+      "properties": {
+        "cajaId": "Ext IIA42-2",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.965088, 38.870541]
+      },
+      "properties": {
+        "cajaId": "Ext IIA42-3",
+        "instalacion": "PSF EXT II",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.958774, 38.866412]
+      },
+      "properties": {
+        "cajaId": "Ext IIIC11",
+        "instalacion": "PSF EXT III",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.959021, 38.866721]
+      },
+      "properties": {
+        "cajaId": "Ext IIIC12",
+        "instalacion": "PSF EXT III",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.958611, 38.866955]
+      },
+      "properties": {
+        "cajaId": "Ext IIIC21",
+        "instalacion": "PSF EXT III",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.959188, 38.866304]
+      },
+      "properties": {
+        "cajaId": "Ext IIIC22-1",
+        "instalacion": "PSF EXT III",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.958932, 38.866588]
+      },
+      "properties": {
+        "cajaId": "Ext IIIC22-2",
+        "instalacion": "PSF EXT III",
+        "tipoCaja": "Estándar"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-6.959402, 38.866843]
+      },
+      "properties": {
+        "cajaId": "Ext IIIC22-3",
+        "instalacion": "PSF EXT III",
+        "tipoCaja": "Estándar"
+      }
+    }
+  ]
+}
