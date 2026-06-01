@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, nestBoxes, InsertNestBox, inspections, InsertInspection } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { eq, desc } from "drizzle-orm";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -95,7 +96,28 @@ export async function getUserByOpenId(openId: string) {
 export async function getNestBoxes() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(nestBoxes);
+  
+  // Obtener todas las cajas nido
+  const boxes = await db.select().from(nestBoxes);
+  
+  // Para cada caja, obtener la última inspección
+  const boxesWithInspections = await Promise.all(
+    boxes.map(async (box) => {
+      const lastInspection = await db
+        .select()
+        .from(inspections)
+        .where(eq(inspections.nestBoxId, box.id))
+        .orderBy(desc(inspections.fecha))
+        .limit(1);
+      
+      return {
+        ...box,
+        inspections: lastInspection,
+      };
+    })
+  );
+  
+  return boxesWithInspections;
 }
 
 export async function getNestBoxById(id: number) {

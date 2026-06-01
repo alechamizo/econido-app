@@ -95,14 +95,18 @@ export default function QuickReview() {
 
   const handleOpenReview = useCallback((nestBox: any) => {
     setSelectedNestBox(nestBox);
+    
+    // Obtener la última inspección para precargar valores
+    const ultimaInspeccion = nestBox.inspections?.[0]; // Asumiendo que está ordenada por fecha descendente
+    
     setReviewData({
       nestBoxId: nestBox.id,
       fecha: new Date().toISOString().split("T")[0],
-      ocupada: null,
-      especie: "Desconocida",
-      numHuevos: 0,
-      numPollos: 0,
-      numAdultos: 0,
+      ocupada: ultimaInspeccion?.ocupada ? true : ultimaInspeccion?.ocupada === 0 ? false : null,
+      especie: ultimaInspeccion?.especie || "Desconocida",
+      numHuevos: ultimaInspeccion?.numHuevos || 0,
+      numPollos: ultimaInspeccion?.numPollos || 0,
+      numAdultos: ultimaInspeccion?.numAdultos || 0,
       observaciones: "",
     });
     setIsModalOpen(true);
@@ -230,6 +234,11 @@ export default function QuickReview() {
                     <div>
                       <h3 className="font-bold text-lg text-slate-900">{caja.cajaId}</h3>
                       <p className="text-sm text-slate-600">{caja.instalacion}</p>
+                      {caja.inspections?.[0] && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Última: {new Date(caja.inspections[0].fecha).toLocaleDateString('es-ES')}
+                        </p>
+                      )}
                     </div>
                     {caja.ultimaEspecie && (
                       <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
@@ -259,7 +268,14 @@ export default function QuickReview() {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Revisión — {selectedNestBox?.cajaId}</DialogTitle>
+            <div>
+              <DialogTitle>Revisión — {selectedNestBox?.cajaId}</DialogTitle>
+              {selectedNestBox?.inspections?.[0] && (
+                <p className="text-sm text-slate-600 mt-2">
+                  Última inspección: {new Date(selectedNestBox.inspections[0].fecha).toLocaleDateString('es-ES')}
+                </p>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -314,7 +330,7 @@ export default function QuickReview() {
                   Especie
                 </Label>
                 <Select
-                  value={reviewData.especie}
+                  value={reviewData.especie || "Desconocida"}
                   onValueChange={(value) =>
                     setReviewData((prev) => ({ ...prev, especie: value }))
                   }
