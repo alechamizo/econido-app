@@ -92,6 +92,9 @@ export default function MapView() {
             <h1 className="text-2xl font-bold text-foreground">EcoNido App</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="default" size="sm" onClick={() => navigate("/quick-review")} className="bg-green-600 hover:bg-green-700">
+              Revisión Rápida
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
               Dashboard
             </Button>

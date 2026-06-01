@@ -11,6 +11,7 @@ import InspectionForm from "./pages/InspectionForm";
 import AdminPanel from "./pages/AdminPanel";
 import Dashboard from "./pages/Dashboard";
 import InspectionHistory from "./pages/InspectionHistory";
+import QuickReview from "./pages/QuickReview";
 
 function InspectionFormRoute() {
   const [location] = useLocation();
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/admin" component={AdminPanel} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/history" component={InspectionHistory} />
+      <Route path="/quick-review" component={QuickReview} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
