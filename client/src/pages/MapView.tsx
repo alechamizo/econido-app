@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { MapPin, Plus, Filter, ChevronLeft, ChevronRight, Navigation } from "lucide-react";
+import { MapPin, Plus, Filter, Menu, X, Navigation, BarChart3, Clock, Zap } from "lucide-react";
 import { useLocation } from "wouter";
 
 // Colores por estado de ocupación
@@ -34,7 +34,7 @@ export default function MapView() {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [selectedNestBox, setSelectedNestBox] = useState<any>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [userMarker, setUserMarker] = useState<google.maps.Marker | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -120,6 +120,7 @@ export default function MapView() {
 
       marker.addListener("click", () => {
         setSelectedNestBox(box);
+        setSidebarOpen(true);
       });
     });
   }, [nestBoxes]);
@@ -144,16 +145,18 @@ export default function MapView() {
   }) || [];
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
-      <div className="bg-white border-b border-border p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-6 h-6 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">EcoNido App</h1>
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
+      {/* Header - Responsive */}
+      <div className="bg-white border-b border-border p-3 md:p-4 shadow-sm flex-shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <MapPin className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
+            <h1 className="text-lg md:text-2xl font-bold text-foreground truncate">EcoNido</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="default" size="sm" onClick={() => navigate("/quick-review")} className="bg-green-600 hover:bg-green-700">
+          
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-2">
+            <Button variant="default" size="sm" onClick={() => navigate("/quick-review")} className="bg-green-600 hover:bg-green-700 whitespace-nowrap">
               Revisión Rápida
             </Button>
             <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
@@ -164,28 +167,66 @@ export default function MapView() {
             </Button>
             {user?.role === "admin" && (
               <Button variant="outline" size="sm" onClick={() => navigate("/admin")}>
-                Panel Admin
+                Admin
               </Button>
             )}
             {user && (
-              <Badge variant="outline">
-                {user.role === "admin" ? "Administrador" : "Técnico"}
+              <Badge variant="outline" className="text-xs">
+                {user.role === "admin" ? "Admin" : "Técnico"}
               </Badge>
             )}
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            {sidebarOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Quick Navigation */}
+        <div className="md:hidden flex gap-2 mt-3 overflow-x-auto pb-2">
+          <Button variant="default" size="sm" onClick={() => navigate("/quick-review")} className="bg-green-600 hover:bg-green-700 text-xs whitespace-nowrap flex-shrink-0">
+            Revisión
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")} className="text-xs whitespace-nowrap flex-shrink-0">
+            Dashboard
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/history")} className="text-xs whitespace-nowrap flex-shrink-0">
+            Historial
+          </Button>
+          {user?.role === "admin" && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="text-xs whitespace-nowrap flex-shrink-0">
+              Admin
+            </Button>
+          )}
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar with filters */}
+        {/* Sidebar - Mobile Drawer */}
         <div
-          className={`bg-white border-r border-border overflow-y-auto transition-all duration-300 ${
-            sidebarOpen ? "w-80" : "w-0"
+          className={`fixed md:relative inset-y-0 left-0 z-40 w-72 md:w-80 bg-white border-r border-border overflow-y-auto transition-transform duration-300 md:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <div className="p-4 space-y-4 w-80">
+          <div className="p-4 space-y-4">
+            {/* Close button for mobile */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
             {/* Filters */}
-            <div className="space-y-3">
+            <div className="space-y-3 mt-8 md:mt-0">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Filter className="w-4 h-4" />
                 Filtros
@@ -216,14 +257,14 @@ export default function MapView() {
                 {Object.entries(STATUS_NAMES).map(([key, name]) => (
                   <div key={key} className="flex items-center gap-2">
                     <div
-                      className="w-4 h-4 rounded-full"
+                      className="w-4 h-4 rounded-full flex-shrink-0"
                       style={{ backgroundColor: STATUS_COLORS[key] }}
                     />
                     <span className="text-sm text-muted-foreground">{name}</span>
                   </div>
                 ))}
                 <div className="flex items-center gap-2 pt-2 border-t border-border">
-                  <div className="w-4 h-4 rounded-full bg-blue-500" />
+                  <div className="w-4 h-4 rounded-full bg-blue-500 flex-shrink-0" />
                   <span className="text-sm text-muted-foreground">Tu ubicación</span>
                 </div>
               </div>
@@ -262,7 +303,10 @@ export default function MapView() {
                     className="w-full mt-2" 
                     size="sm" 
                     variant="default"
-                    onClick={() => navigate(`/inspection/${selectedNestBox.id}`)}
+                    onClick={() => {
+                      navigate(`/inspection/${selectedNestBox.id}`);
+                      setSidebarOpen(false);
+                    }}
                   >
                     Añadir Inspección
                   </Button>
@@ -295,36 +339,62 @@ export default function MapView() {
           </div>
         </div>
 
-        {/* Toggle Sidebar Button */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-border rounded-r-lg p-2 hover:bg-slate-100 transition-all"
-          style={{ left: sidebarOpen ? "320px" : "0" }}
-        >
-          {sidebarOpen ? (
-            <ChevronLeft className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-4 h-4" />
-          )}
-        </button>
+        {/* Overlay for mobile sidebar */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 md:hidden z-30"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-        {/* Map */}
-        <div className="flex-1 relative">
+        {/* Map Container */}
+        <div className="flex-1 relative flex flex-col">
           {isLoading ? (
             <div className="flex items-center justify-center h-full bg-muted">
               <p className="text-muted-foreground">Cargando mapa...</p>
             </div>
           ) : (
             <>
-              <GoogleMapView onMapReady={handleMapReady} className="h-full" initialCenter={{ lat: 38.87, lng: -6.97 }} initialZoom={13} />
+              <GoogleMapView 
+                onMapReady={handleMapReady} 
+                className="flex-1" 
+                initialCenter={{ lat: 38.87, lng: -6.97 }} 
+                initialZoom={13} 
+              />
+              
               {/* Geolocation Button */}
               <button
                 onClick={handleCenterToUser}
-                className="absolute bottom-4 right-4 bg-white border border-border rounded-lg p-3 hover:bg-slate-100 transition-all shadow-lg z-10"
+                className="absolute bottom-4 right-4 bg-white border border-border rounded-lg p-3 hover:bg-slate-100 transition-all shadow-lg z-10 active:scale-95"
                 title="Centrar en mi ubicación"
               >
                 <Navigation className="w-5 h-5 text-primary" />
               </button>
+
+              {/* Quick Action Buttons - Mobile */}
+              <div className="md:hidden absolute bottom-4 left-4 flex flex-col gap-2 z-10">
+                <button
+                  onClick={() => navigate("/quick-review")}
+                  className="bg-green-600 hover:bg-green-700 text-white rounded-lg p-3 shadow-lg active:scale-95 transition-all"
+                  title="Revisión Rápida"
+                >
+                  <Zap className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => navigate("/dashboard")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-3 shadow-lg active:scale-95 transition-all"
+                  title="Dashboard"
+                >
+                  <BarChart3 className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => navigate("/history")}
+                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg p-3 shadow-lg active:scale-95 transition-all"
+                  title="Historial"
+                >
+                  <Clock className="w-5 h-5" />
+                </button>
+              </div>
             </>
           )}
         </div>
