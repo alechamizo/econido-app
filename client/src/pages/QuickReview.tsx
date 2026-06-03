@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,7 +20,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, MapPin, Upload, Camera } from "lucide-react";
+import { useLocation } from "wouter";
 
 const INSTALACIONES = ["PSF EXT I", "PSF EXT II", "PSF EXT III"];
 
@@ -55,14 +56,17 @@ interface ReviewData {
   numPollos: number;
   numAdultos: number;
   observaciones: string;
+  multimedia: File[];
 }
 
 export default function QuickReview() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
   const [selectedInstalacion, setSelectedInstalacion] = useState<string>("");
   const [selectedSector, setSelectedSector] = useState<string>("");
   const [selectedNestBox, setSelectedNestBox] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [reviewData, setReviewData] = useState<ReviewData>({
     nestBoxId: 0,
     fecha: new Date().toISOString().split("T")[0],
@@ -72,10 +76,29 @@ export default function QuickReview() {
     numPollos: 0,
     numAdultos: 0,
     observaciones: "",
+    multimedia: [],
   });
 
   const { data: nestBoxes, isLoading } = trpc.nestBox.list.useQuery();
   const createInspection = trpc.inspection.create.useMutation();
+
+  // Obtener ubicación del usuario al cargar
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error("Error obteniendo ubicación:", error);
+          toast.error("No se pudo obtener tu ubicación");
+        }
+      );
+    }
+  }, []);
 
   // Obtener sectores disponibles para la instalación seleccionada
   const sectoresDisponibles = useMemo(() => {
@@ -97,7 +120,7 @@ export default function QuickReview() {
     setSelectedNestBox(nestBox);
     
     // Obtener la última inspección para precargar valores
-    const ultimaInspeccion = nestBox.inspections?.[0]; // Asumiendo que está ordenada por fecha descendente
+    const ultimaInspeccion = nestBox.inspections?.[0];
     
     setReviewData({
       nestBoxId: nestBox.id,
@@ -108,9 +131,34 @@ export default function QuickReview() {
       numPollos: ultimaInspeccion?.numPollos || 0,
       numAdultos: ultimaInspeccion?.numAdultos || 0,
       observaciones: "",
+      multimedia: [],
     });
     setIsModalOpen(true);
   }, []);
+
+  const handleMultimediaUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setReviewData((prev) => ({
+      ...prev,
+      multimedia: [...prev.multimedia, ...files],
+    }));
+    toast.success(`${files.length} archivo(s) agregado(s)`);
+  }, []);
+
+  const handleRemoveMultimedia = useCallback((index: number) => {
+    setReviewData((prev) => ({
+      ...prev,
+      multimedia: prev.multimedia.filter((_, i) => i !== index),
+    }));
+  }, []);
+
+  const handleViewInMap = useCallback(() => {
+    if (selectedNestBox) {
+      localStorage.setItem("selectedNestBoxId", selectedNestBox.id.toString());
+      navigate("/");
+      setIsModalOpen(false);
+    }
+  }, [selectedNestBox, navigate]);
 
   const handleSaveReview = useCallback(async () => {
     if (reviewData.ocupada === null) {
@@ -149,6 +197,25 @@ export default function QuickReview() {
     }));
   };
 
+  // Calcular distancia a la caja seleccionada
+  const distanciaACaja = useMemo(() => {
+    if (!userLocation || !selectedNestBox) return null;
+    
+    const R = 6371; // Radio de la Tierra en km
+    const lat1 = userLocation.lat * Math.PI / 180;
+    const lat2 = parseFloat(selectedNestBox.latitude) * Math.PI / 180;
+    const deltaLat = (parseFloat(selectedNestBox.latitude) - userLocation.lat) * Math.PI / 180;
+    const deltaLng = (parseFloat(selectedNestBox.longitude) - userLocation.lng) * Math.PI / 180;
+    
+    const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+              Math.cos(lat1) * Math.cos(lat2) *
+              Math.sin(deltaLng/2) * Math.sin(deltaLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distancia = R * c;
+    
+    return distancia < 1 ? (distancia * 1000).toFixed(0) + " m" : distancia.toFixed(2) + " km";
+  }, [userLocation, selectedNestBox]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-6xl mx-auto">
@@ -156,6 +223,11 @@ export default function QuickReview() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-slate-900 mb-2">Revisión Rápida</h1>
           <p className="text-slate-600">Completa inspecciones de campo de forma ágil</p>
+          {userLocation && (
+            <p className="text-sm text-green-600 mt-2">
+              📍 Tu ubicación: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+            </p>
+          )}
         </div>
 
         {/* Filtros */}
@@ -266,15 +338,31 @@ export default function QuickReview() {
 
       {/* Modal de Revisión */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div>
-              <DialogTitle>Revisión — {selectedNestBox?.cajaId}</DialogTitle>
-              {selectedNestBox?.inspections?.[0] && (
-                <p className="text-sm text-slate-600 mt-2">
-                  Última inspección: {new Date(selectedNestBox.inspections[0].fecha).toLocaleDateString('es-ES')}
-                </p>
-              )}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle>Revisión — {selectedNestBox?.cajaId}</DialogTitle>
+                {selectedNestBox?.inspections?.[0] && (
+                  <p className="text-sm text-slate-600 mt-2">
+                    Última inspección: {new Date(selectedNestBox.inspections[0].fecha).toLocaleDateString('es-ES')}
+                  </p>
+                )}
+                {distanciaACaja && (
+                  <p className="text-sm text-blue-600 mt-1 font-semibold">
+                    📍 Distancia: {distanciaACaja}
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleViewInMap}
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
+                <MapPin className="w-4 h-4" />
+                Ver en mapa
+              </Button>
             </div>
           </DialogHeader>
 
@@ -414,22 +502,79 @@ export default function QuickReview() {
 
             {/* Notas */}
             <div>
-              <Label htmlFor="notas" className="text-sm font-semibold">
+              <Label htmlFor="observaciones" className="text-sm font-semibold">
                 Notas
               </Label>
               <Textarea
-                id="notas"
+                id="observaciones"
                 placeholder="Observaciones..."
                 value={reviewData.observaciones}
                 onChange={(e) =>
                   setReviewData((prev) => ({ ...prev, observaciones: e.target.value }))
                 }
-                className="mt-1 min-h-24"
+                className="mt-1 resize-none"
               />
             </div>
 
+            {/* Multimedia */}
+            <div>
+              <Label className="text-sm font-semibold">Multimedia (Fotos/Videos)</Label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="file"
+                  id="multimedia-input"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={handleMultimediaUpload}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById("multimedia-input")?.click()}
+                  className="flex items-center gap-2 flex-1"
+                >
+                  <Upload className="w-4 h-4" />
+                  Subir
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const input = document.getElementById("multimedia-input") as HTMLInputElement;
+                    if (input) {
+                      input.setAttribute("capture", "environment");
+                      input.click();
+                    }
+                  }}
+                  className="flex items-center gap-2 flex-1"
+                >
+                  <Camera className="w-4 h-4" />
+                  Cámara
+                </Button>
+              </div>
+              {reviewData.multimedia.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm text-slate-600">{reviewData.multimedia.length} archivo(s) seleccionado(s)</p>
+                  {reviewData.multimedia.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-slate-100 p-2 rounded text-sm">
+                      <span className="truncate">{file.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveMultimedia(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Botones */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-2 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setIsModalOpen(false)}
@@ -440,9 +585,9 @@ export default function QuickReview() {
               <Button
                 onClick={handleSaveReview}
                 disabled={createInspection.isPending}
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
               >
-                {createInspection.isPending ? "Guardando..." : "Guardar"}
+                {createInspection.isPending ? "Guardando..." : "Guardar Revisión"}
               </Button>
             </div>
           </div>
