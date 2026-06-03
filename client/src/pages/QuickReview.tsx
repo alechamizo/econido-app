@@ -20,7 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { CheckCircle2, AlertCircle, MapPin, Upload, Camera } from "lucide-react";
+import { CheckCircle2, AlertCircle, MapPin, Upload, Camera, Home } from "lucide-react";
 import { useLocation } from "wouter";
 
 const INSTALACIONES = ["PSF EXT I", "PSF EXT II", "PSF EXT III"];
@@ -106,15 +106,43 @@ export default function QuickReview() {
     return SECTORES_POR_INSTALACION[selectedInstalacion] || [];
   }, [selectedInstalacion]);
 
-  // Filtrar cajas según instalación y sector
+  // Calcular distancia entre dos puntos (Haversine)
+  const calcularDistancia = useCallback((lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371; // Radio de la Tierra en km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }, []);
+
+  // Filtrar cajas según instalación y sector, y ordenar por proximidad
   const cajasFiltradas = useMemo(() => {
     if (!nestBoxes) return [];
-    return nestBoxes.filter((caja: any) => {
+    let filtered = nestBoxes.filter((caja: any) => {
       const matchInstalacion = !selectedInstalacion || caja.instalacion === selectedInstalacion;
       const matchSector = !selectedSector || caja.cajaId.includes(selectedSector);
       return matchInstalacion && matchSector;
     });
-  }, [nestBoxes, selectedInstalacion, selectedSector]);
+
+    // Ordenar por proximidad si tenemos ubicación del usuario
+    if (userLocation) {
+      filtered = filtered.map((caja: any) => ({
+        ...caja,
+        distancia: calcularDistancia(
+          userLocation.lat,
+          userLocation.lng,
+          parseFloat(caja.latitude),
+          parseFloat(caja.longitude)
+        ),
+      }));
+      filtered.sort((a: any, b: any) => a.distancia - b.distancia);
+    }
+
+    return filtered;
+  }, [nestBoxes, selectedInstalacion, selectedSector, userLocation, calcularDistancia]);
 
   const handleOpenReview = useCallback((nestBox: any) => {
     setSelectedNestBox(nestBox);
@@ -200,34 +228,36 @@ export default function QuickReview() {
   // Calcular distancia a la caja seleccionada
   const distanciaACaja = useMemo(() => {
     if (!userLocation || !selectedNestBox) return null;
-    
-    const R = 6371; // Radio de la Tierra en km
-    const lat1 = userLocation.lat * Math.PI / 180;
-    const lat2 = parseFloat(selectedNestBox.latitude) * Math.PI / 180;
-    const deltaLat = (parseFloat(selectedNestBox.latitude) - userLocation.lat) * Math.PI / 180;
-    const deltaLng = (parseFloat(selectedNestBox.longitude) - userLocation.lng) * Math.PI / 180;
-    
-    const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
-              Math.cos(lat1) * Math.cos(lat2) *
-              Math.sin(deltaLng/2) * Math.sin(deltaLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distancia = R * c;
-    
+    const distancia = calcularDistancia(
+      userLocation.lat,
+      userLocation.lng,
+      parseFloat(selectedNestBox.latitude),
+      parseFloat(selectedNestBox.longitude)
+    );
     return distancia < 1 ? (distancia * 1000).toFixed(0) + " m" : distancia.toFixed(2) + " km";
-  }, [userLocation, selectedNestBox]);
+  }, [userLocation, selectedNestBox, calcularDistancia]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Revisión Rápida</h1>
-          <p className="text-slate-600">Completa inspecciones de campo de forma ágil</p>
-          {userLocation && (
-            <p className="text-sm text-green-600 mt-2">
-              📍 Tu ubicación: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
-            </p>
-          )}
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-slate-900 mb-2">Revisión Rápida</h1>
+            <p className="text-slate-600">Completa inspecciones de campo de forma ágil</p>
+            {userLocation && (
+              <p className="text-sm text-green-600 mt-2">
+                📍 Tu ubicación: {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2"
+          >
+            ← Volver
+          </Button>
         </div>
 
         {/* Filtros */}
@@ -306,6 +336,11 @@ export default function QuickReview() {
                     <div>
                       <h3 className="font-bold text-lg text-slate-900">{caja.cajaId}</h3>
                       <p className="text-sm text-slate-600">{caja.instalacion}</p>
+                      {caja.distancia !== undefined && (
+                        <p className="text-xs text-blue-600 font-semibold mt-1">
+                          📍 {caja.distancia < 1 ? (caja.distancia * 1000).toFixed(0) + " m" : caja.distancia.toFixed(2) + " km"}
+                        </p>
+                      )}
                       {caja.inspections?.[0] && (
                         <p className="text-xs text-slate-500 mt-1">
                           Última: {new Date(caja.inspections[0].fecha).toLocaleDateString('es-ES')}
