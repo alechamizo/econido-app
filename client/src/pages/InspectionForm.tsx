@@ -1,10 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -12,285 +10,451 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { ArrowLeft, Upload } from "lucide-react";
+import { MapPin, Upload, Camera, ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
 
-const SPECIES_NAMES: Record<string, string> = {
-  cernicalo_vulgar: "Cernícalo vulgar",
-  cernicalo_primilla: "Cernícalo primilla",
-  carraca_europea: "Carraca europea",
-  mochuelo_europeo: "Mochuelo europeo",
-  lechuza: "Lechuza",
-  gorrion: "Gorrión",
-  otros: "Otros",
-};
+const ESPECIES = [
+  "Desconocida",
+  "Gorrión común",
+  "Lavandera blanca",
+  "Carbonero común",
+  "Estornino negro",
+  "Cernícalo vulgar",
+  "Cernícalo primilla",
+  "Carraca europea",
+  "Mochuelo europeo",
+  "Lechuza",
+  "Otros",
+];
+
+const ESTADOS = ["Desconocida", "Ocupada", "Vacía"];
 
 interface InspectionFormProps {
   nestBoxId: number;
   onSuccess?: () => void;
 }
 
+interface ReviewData {
+  nestBoxId: number;
+  fecha: string;
+  ocupada: boolean | null;
+  especie: string | undefined;
+  numHuevos: number;
+  numPollos: number;
+  numAdultos: number;
+  observaciones: string;
+  multimedia: File[];
+}
+
 export default function InspectionForm({ nestBoxId, onSuccess }: InspectionFormProps) {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [isOccupied, setIsOccupied] = useState(false);
-  const [selectedSpecies, setSelectedSpecies] = useState("");
-  const [otherSpecies, setOtherSpecies] = useState("");
-  const [numEggs, setNumEggs] = useState(0);
-  const [numChicks, setNumChicks] = useState(0);
-  const [conservationStatus, setConservationStatus] = useState("");
-  const [observations, setObservations] = useState("");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedNestBox, setSelectedNestBox] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [reviewData, setReviewData] = useState<ReviewData>({
+    nestBoxId,
+    fecha: new Date().toISOString().split("T")[0],
+    ocupada: null,
+    especie: "Desconocida",
+    numHuevos: 0,
+    numPollos: 0,
+    numAdultos: 0,
+    observaciones: "",
+    multimedia: [],
+  });
 
+  const { data: nestBoxes } = trpc.nestBox.list.useQuery();
   const createInspection = trpc.inspection.create.useMutation();
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setUploadedFiles((prev) => [...prev, ...files]);
-  };
+  // Obtener ubicación del usuario
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error("Error obteniendo ubicación:", error);
+        }
+      );
+    }
+  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  // Cargar la caja nido seleccionada
+  useEffect(() => {
+    if (nestBoxes && nestBoxId) {
+      const nestBox = nestBoxes.find((box: any) => box.id === nestBoxId);
+      if (nestBox) {
+        setSelectedNestBox(nestBox);
+        
+        // Precargar valores de la última inspección
+        const ultimaInspeccion = nestBox.inspections?.[0];
+        setReviewData({
+          nestBoxId,
+          fecha: new Date().toISOString().split("T")[0],
+          ocupada: ultimaInspeccion?.ocupada ? true : ultimaInspeccion?.ocupada === 0 ? false : null,
+          especie: ultimaInspeccion?.especie || "Desconocida",
+          numHuevos: ultimaInspeccion?.numHuevos || 0,
+          numPollos: ultimaInspeccion?.numPollos || 0,
+          numAdultos: 0,
+          observaciones: "",
+          multimedia: [],
+        });
+      }
+    }
+  }, [nestBoxes, nestBoxId]);
+
+  const calcularDistancia = useCallback((lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }, []);
+
+  const distanciaACaja = useMemo(() => {
+    if (!userLocation || !selectedNestBox) return null;
+    const distancia = calcularDistancia(
+      userLocation.lat,
+      userLocation.lng,
+      parseFloat(selectedNestBox.latitude),
+      parseFloat(selectedNestBox.longitude)
+    );
+    return distancia < 1 ? (distancia * 1000).toFixed(0) + " m" : distancia.toFixed(2) + " km";
+  }, [userLocation, selectedNestBox, calcularDistancia]);
+
+  const handleMultimediaUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setReviewData((prev) => ({
+      ...prev,
+      multimedia: [...prev.multimedia, ...files],
+    }));
+    toast.success(`${files.length} archivo(s) agregado(s)`);
+  }, []);
+
+  const handleRemoveMultimedia = useCallback((index: number) => {
+    setReviewData((prev) => ({
+      ...prev,
+      multimedia: prev.multimedia.filter((_, i) => i !== index),
+    }));
+  }, []);
+
+  const handleViewInMap = useCallback(() => {
+    if (selectedNestBox) {
+      localStorage.setItem("selectedNestBoxId", selectedNestBox.id.toString());
+      navigate("/");
+    }
+  }, [selectedNestBox, navigate]);
+
+  const handleSaveReview = useCallback(async () => {
+    if (reviewData.ocupada === null) {
+      toast.error("Por favor selecciona si la caja está ocupada");
+      return;
+    }
 
     try {
-      if (!user) {
-        toast.error("Usuario no autenticado");
-        return;
-      }
-
-      const finalSpecies = selectedSpecies === "otros" ? otherSpecies : selectedSpecies;
-
       await createInspection.mutateAsync({
-        nestBoxId,
-        fecha: new Date(selectedDate),
-        ocupada: isOccupied ? 1 : 0,
-        especie: isOccupied ? finalSpecies : undefined,
-        numHuevos: isOccupied ? numEggs : undefined,
-        numPollos: isOccupied ? numChicks : undefined,
-        estadoConservacion: conservationStatus as any,
-        observaciones: observations,
+        nestBoxId: reviewData.nestBoxId,
+        fecha: new Date(reviewData.fecha),
+        ocupada: reviewData.ocupada ? 1 : 0,
+        especie: reviewData.ocupada ? reviewData.especie : undefined,
+        numHuevos: reviewData.ocupada ? reviewData.numHuevos : 0,
+        numPollos: reviewData.ocupada ? reviewData.numPollos : 0,
+        estadoConservacion: "bueno",
+        observaciones: reviewData.observaciones,
       });
 
-      toast.success("Inspección registrada correctamente");
+      toast.success("Revisión guardada correctamente");
       onSuccess?.();
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Error al registrar la inspección");
-    } finally {
-      setIsLoading(false);
+      toast.error(error.message || "Error al guardar la revisión");
     }
+  }, [reviewData, createInspection, onSuccess, navigate]);
+
+  const handleEstadoChange = (estado: string) => {
+    setReviewData((prev) => ({
+      ...prev,
+      ocupada: estado === "Ocupada" ? true : estado === "Vacía" ? false : null,
+      especie: estado === "Ocupada" ? prev.especie : "Desconocida",
+      numHuevos: estado === "Ocupada" ? prev.numHuevos : 0,
+      numPollos: estado === "Ocupada" ? prev.numPollos : 0,
+      numAdultos: estado === "Ocupada" ? prev.numAdultos : 0,
+    }));
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
-      <div className="bg-white border-b border-border p-4 shadow-sm">
-        <div className="flex items-center gap-2">
+      <div className="bg-white border-b border-border p-3 md:p-4 shadow-sm sticky top-0 z-20">
+        <div className="flex items-center justify-between gap-2">
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={() => navigate("/")}
+            className="flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
+            Volver
           </Button>
-          <h1 className="text-2xl font-bold text-foreground">Nueva Inspección</h1>
+          <h1 className="text-lg md:text-xl font-bold text-foreground">Nueva Inspección</h1>
+          <div className="w-20" />
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto p-4">
-        <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Modal de Inspección */}
+      <Dialog open={true} onOpenChange={() => navigate("/")}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle>Revisión — {selectedNestBox?.cajaId}</DialogTitle>
+                {selectedNestBox?.inspections?.[0] && (
+                  <p className="text-sm text-slate-600 mt-2">
+                    Última inspección: {new Date(selectedNestBox.inspections[0].fecha).toLocaleDateString('es-ES')}
+                  </p>
+                )}
+                {distanciaACaja && (
+                  <p className="text-sm text-blue-600 mt-1 font-semibold">
+                    📍 Distancia: {distanciaACaja}
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleViewInMap}
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
+                <MapPin className="w-4 h-4" />
+                Ver en mapa
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4">
             {/* Fecha */}
             <div>
-              <Label htmlFor="fecha" className="text-sm font-medium">
-                Fecha de Inspección
+              <Label htmlFor="fecha" className="text-sm font-semibold">
+                Fecha
               </Label>
               <Input
                 id="fecha"
                 type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                value={reviewData.fecha}
+                onChange={(e) =>
+                  setReviewData((prev) => ({ ...prev, fecha: e.target.value }))
+                }
                 className="mt-1"
               />
             </div>
 
-            {/* ¿Está ocupada? */}
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <Label htmlFor="occupied" className="text-sm font-medium cursor-pointer">
-                ¿Está ocupada?
+            {/* Estado */}
+            <div>
+              <Label htmlFor="estado" className="text-sm font-semibold">
+                Estado
               </Label>
-              <Switch
-                id="occupied"
-                checked={isOccupied}
-                onCheckedChange={setIsOccupied}
-              />
+              <Select
+                value={
+                  reviewData.ocupada === true
+                    ? "Ocupada"
+                    : reviewData.ocupada === false
+                    ? "Vacía"
+                    : "Desconocida"
+                }
+                onValueChange={handleEstadoChange}
+              >
+                <SelectTrigger id="estado" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTADOS.map((estado) => (
+                    <SelectItem key={estado} value={estado}>
+                      {estado}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Campos condicionales si está ocupada */}
-            {isOccupied && (
-              <>
-                {/* Especie */}
-                <div>
-                  <Label htmlFor="species" className="text-sm font-medium">
-                    Especie
-                  </Label>
-                  <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
-                    <SelectTrigger id="species" className="mt-1">
-                      <SelectValue placeholder="Selecciona una especie" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(SPECIES_NAMES).map(([key, name]) => (
-                        <SelectItem key={key} value={key}>
-                          {name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Otra especie si se selecciona "otros" */}
-                {selectedSpecies === "otros" && (
-                  <div>
-                    <Label htmlFor="otherSpecies" className="text-sm font-medium">
-                      Especifica la especie
-                    </Label>
-                    <Input
-                      id="otherSpecies"
-                      type="text"
-                      placeholder="Nombre de la especie"
-                      value={otherSpecies}
-                      onChange={(e) => setOtherSpecies(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                )}
-
-                {/* Número de huevos */}
-                <div>
-                  <Label htmlFor="eggs" className="text-sm font-medium">
-                    Número de Huevos (0-15)
-                  </Label>
-                  <Input
-                    id="eggs"
-                    type="number"
-                    min="0"
-                    max="15"
-                    value={numEggs}
-                    onChange={(e) => setNumEggs(Math.min(15, Math.max(0, parseInt(e.target.value) || 0)))}
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Número de pollos */}
-                <div>
-                  <Label htmlFor="chicks" className="text-sm font-medium">
-                    Número de Pollos (0-15)
-                  </Label>
-                  <Input
-                    id="chicks"
-                    type="number"
-                    min="0"
-                    max="15"
-                    value={numChicks}
-                    onChange={(e) => setNumChicks(Math.min(15, Math.max(0, parseInt(e.target.value) || 0)))}
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Estado de conservación */}
-                <div>
-                  <Label htmlFor="conservation" className="text-sm font-medium">
-                    Estado de Conservación
-                  </Label>
-                  <Select value={conservationStatus} onValueChange={setConservationStatus}>
-                    <SelectTrigger id="conservation" className="mt-1">
-                      <SelectValue placeholder="Selecciona el estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bueno">Bueno</SelectItem>
-                      <SelectItem value="necesita_reparacion">Necesita reparación</SelectItem>
-                      <SelectItem value="caida">Caída</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
+            {/* Especie (solo si ocupada) */}
+            {reviewData.ocupada && (
+              <div>
+                <Label htmlFor="especie" className="text-sm font-semibold">
+                  Especie
+                </Label>
+                <Select
+                  value={reviewData.especie || "Desconocida"}
+                  onValueChange={(value) =>
+                    setReviewData((prev) => ({ ...prev, especie: value }))
+                  }
+                >
+                  <SelectTrigger id="especie" className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ESPECIES.map((especie) => (
+                      <SelectItem key={especie} value={especie}>
+                        {especie}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
 
-            {/* Observaciones */}
+            {/* Conteos (solo si ocupada) */}
+            {reviewData.ocupada && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label htmlFor="huevos" className="text-sm font-semibold">
+                    Huevos
+                  </Label>
+                  <Input
+                    id="huevos"
+                    type="number"
+                    min="0"
+                    max="15"
+                    value={reviewData.numHuevos}
+                    onChange={(e) =>
+                      setReviewData((prev) => ({
+                        ...prev,
+                        numHuevos: parseInt(e.target.value) || 0,
+                      }))
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pollos" className="text-sm font-semibold">
+                    Pollos
+                  </Label>
+                  <Input
+                    id="pollos"
+                    type="number"
+                    min="0"
+                    max="15"
+                    value={reviewData.numPollos}
+                    onChange={(e) =>
+                      setReviewData((prev) => ({
+                        ...prev,
+                        numPollos: parseInt(e.target.value) || 0,
+                      }))
+                    }
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Notas */}
             <div>
-              <Label htmlFor="observations" className="text-sm font-medium">
-                Observaciones
+              <Label htmlFor="observaciones" className="text-sm font-semibold">
+                Notas
               </Label>
               <Textarea
-                id="observations"
-                placeholder="Notas adicionales sobre la inspección..."
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                className="mt-1"
-                rows={4}
+                id="observaciones"
+                placeholder="Observaciones..."
+                value={reviewData.observaciones}
+                onChange={(e) =>
+                  setReviewData((prev) => ({ ...prev, observaciones: e.target.value }))
+                }
+                className="mt-1 resize-none"
               />
             </div>
 
             {/* Multimedia */}
             <div>
-              <Label className="text-sm font-medium">Multimedia (Fotos/Audio)</Label>
-              <div className="mt-2 border-2 border-dashed border-border rounded-lg p-4">
+              <Label className="text-sm font-semibold">Multimedia (Fotos/Videos)</Label>
+              <div className="mt-2 flex gap-2">
                 <input
                   type="file"
+                  id="multimedia-input"
                   multiple
-                  accept="image/*,audio/*"
-                  onChange={handleFileUpload}
+                  accept="image/*,video/*"
+                  onChange={handleMultimediaUpload}
                   className="hidden"
-                  id="file-upload"
                 />
-                <label
-                  htmlFor="file-upload"
-                  className="flex flex-col items-center justify-center cursor-pointer"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => document.getElementById("multimedia-input")?.click()}
+                  className="flex items-center gap-2 flex-1"
                 >
-                  <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground">
-                    Haz clic para seleccionar archivos
-                  </span>
-                </label>
+                  <Upload className="w-4 h-4" />
+                  Subir
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const input = document.getElementById("multimedia-input") as HTMLInputElement;
+                    if (input) {
+                      input.setAttribute("capture", "environment");
+                      input.click();
+                    }
+                  }}
+                  className="flex items-center gap-2 flex-1"
+                >
+                  <Camera className="w-4 h-4" />
+                  Cámara
+                </Button>
               </div>
-              {uploadedFiles.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {uploadedFiles.map((file, idx) => (
-                    <div key={idx} className="text-sm text-muted-foreground">
-                      ✓ {file.name}
+              {reviewData.multimedia.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm text-slate-600">{reviewData.multimedia.length} archivo(s) seleccionado(s)</p>
+                  {reviewData.multimedia.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-slate-100 p-2 rounded text-sm">
+                      <span className="truncate">{file.name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveMultimedia(index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        ✕
+                      </Button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Botones de acción */}
+            {/* Botones */}
             <div className="flex gap-2 pt-4">
               <Button
-                type="button"
                 variant="outline"
                 onClick={() => navigate("/")}
+                className="flex-1"
               >
                 Cancelar
               </Button>
               <Button
-                type="submit"
-                disabled={isLoading || (isOccupied && !selectedSpecies)}
+                onClick={handleSaveReview}
+                disabled={createInspection.isPending}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold"
               >
-                {isLoading ? "Registrando..." : "Registrar Inspección"}
+                {createInspection.isPending ? "Guardando..." : "Guardar Revisión"}
               </Button>
             </div>
-          </form>
-        </Card>
-      </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
