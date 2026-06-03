@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { MapView as GoogleMapView } from "@/components/Map";
 import { Button } from "@/components/ui/button";
@@ -12,59 +12,101 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
-import { MapPin, Plus, Filter } from "lucide-react";
+import { MapPin, Plus, Filter, ChevronLeft, ChevronRight, Navigation } from "lucide-react";
 import { useLocation } from "wouter";
 
-const SPECIES_COLORS: Record<string, string> = {
-  cernicalo_vulgar: "#A0522D",
-  cernicalo_primilla: "#FF4500",
-  carraca_europea: "#00CED1",
-  mochuelo_europeo: "#DAA520",
-  lechuza: "#E6E6FA",
-  gorrion: "#696969",
-  otros: "#8A2BE2",
-  vacia: "#32CD32",
+// Colores por estado de ocupación
+const STATUS_COLORS: Record<string, string> = {
+  ocupada: "#FF6B6B",      // Rojo para ocupada
+  vacia: "#4ECDC4",        // Verde/Turquesa para vacía
+  desconocida: "#95A5A6",  // Gris para sin datos
 };
 
-const SPECIES_NAMES: Record<string, string> = {
-  cernicalo_vulgar: "Cernícalo vulgar",
-  cernicalo_primilla: "Cernícalo primilla",
-  carraca_europea: "Carraca europea",
-  mochuelo_europeo: "Mochuelo europeo",
-  lechuza: "Lechuza",
-  gorrion: "Gorrión",
-  otros: "Otros",
-  vacia: "Caja Vacía",
+const STATUS_NAMES: Record<string, string> = {
+  ocupada: "Ocupada",
+  vacia: "Vacía",
+  desconocida: "Sin datos",
 };
 
 export default function MapView() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [selectedSpecies, setSelectedSpecies] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [selectedNestBox, setSelectedNestBox] = useState<any>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [userMarker, setUserMarker] = useState<google.maps.Marker | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const { data: nestBoxes, isLoading } = trpc.nestBox.list.useQuery();
 
-  const handleMapReady = useCallback((map: google.maps.Map) => {
+  // Obtener ubicación del usuario
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error("Error obteniendo ubicación:", error);
+        }
+      );
+    }
+  }, []);
+
+  // Actualizar marcador del usuario en el mapa
+  useEffect(() => {
+    if (!map || !userLocation) return;
+
+    if (userMarker) {
+      userMarker.setPosition(userLocation);
+    } else {
+      const marker = new google.maps.Marker({
+        position: userLocation,
+        map,
+        title: "Tu ubicación",
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#4A90E2",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 3,
+        },
+      });
+      setUserMarker(marker);
+    }
+  }, [map, userLocation, userMarker]);
+
+  const handleMapReady = useCallback((mapInstance: google.maps.Map) => {
+    setMap(mapInstance);
     setMapReady(true);
     
     if (!nestBoxes) return;
 
-    // Add markers for each nest box
+    // Limpiar marcadores previos
     nestBoxes.forEach((box: any) => {
       if (!box.latitude || !box.longitude) return;
 
       const lat = parseFloat(box.latitude);
       const lng = parseFloat(box.longitude);
 
-      const speciesKey = box.ultimaEspecie || "vacia";
-      const color = SPECIES_COLORS[speciesKey] || "#8A2BE2";
+      // Determinar estado: ocupada, vacía o desconocida
+      let estado = "desconocida";
+      if (box.inspections && box.inspections.length > 0) {
+        const ultimaInspeccion = box.inspections[0];
+        estado = ultimaInspeccion.ocupada ? "ocupada" : "vacia";
+      }
+
+      const color = STATUS_COLORS[estado] || "#95A5A6";
 
       const marker = new google.maps.Marker({
         position: { lat, lng },
-        map,
+        map: mapInstance,
         title: box.cajaId,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
@@ -81,6 +123,25 @@ export default function MapView() {
       });
     });
   }, [nestBoxes]);
+
+  const handleCenterToUser = useCallback(() => {
+    if (!map || !userLocation) return;
+    map.panTo(userLocation);
+    map.setZoom(15);
+  }, [map, userLocation]);
+
+  // Filtrar cajas según estado seleccionado
+  const cajasFiltradas = nestBoxes?.filter((box: any) => {
+    if (!selectedStatus || selectedStatus === "all") return true;
+    
+    let estado = "desconocida";
+    if (box.inspections && box.inspections.length > 0) {
+      const ultimaInspeccion = box.inspections[0];
+      estado = ultimaInspeccion.ocupada ? "ocupada" : "vacia";
+    }
+    
+    return estado === selectedStatus;
+  }) || [];
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -115,35 +176,20 @@ export default function MapView() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {/* Sidebar with filters */}
-        <div className="w-80 bg-white border-r border-border overflow-y-auto">
-          <div className="p-4 space-y-4">
+        <div
+          className={`bg-white border-r border-border overflow-y-auto transition-all duration-300 ${
+            sidebarOpen ? "w-80" : "w-0"
+          }`}
+        >
+          <div className="p-4 space-y-4 w-80">
             {/* Filters */}
             <div className="space-y-3">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Filter className="w-4 h-4" />
                 Filtros
               </h2>
-
-              <div>
-                <label className="text-sm font-medium text-foreground block mb-2">
-                  Especie
-                </label>
-                <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las especies" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las especies</SelectItem>
-                    {Object.entries(SPECIES_NAMES).map(([key, name]) => (
-                      <SelectItem key={key} value={key}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div>
                 <label className="text-sm font-medium text-foreground block mb-2">
@@ -157,6 +203,7 @@ export default function MapView() {
                     <SelectItem value="all">Todos los estados</SelectItem>
                     <SelectItem value="ocupada">Ocupada</SelectItem>
                     <SelectItem value="vacia">Vacía</SelectItem>
+                    <SelectItem value="desconocida">Sin datos</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -165,16 +212,20 @@ export default function MapView() {
             {/* Legend */}
             <div className="space-y-2 pt-4 border-t border-border">
               <h3 className="text-sm font-semibold text-foreground">Leyenda</h3>
-              <div className="space-y-1">
-                {Object.entries(SPECIES_NAMES).map(([key, name]) => (
+              <div className="space-y-2">
+                {Object.entries(STATUS_NAMES).map(([key, name]) => (
                   <div key={key} className="flex items-center gap-2">
                     <div
                       className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: SPECIES_COLORS[key] }}
+                      style={{ backgroundColor: STATUS_COLORS[key] }}
                     />
                     <span className="text-sm text-muted-foreground">{name}</span>
                   </div>
                 ))}
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
+                  <div className="w-4 h-4 rounded-full bg-blue-500" />
+                  <span className="text-sm text-muted-foreground">Tu ubicación</span>
+                </div>
               </div>
             </div>
 
@@ -199,11 +250,11 @@ export default function MapView() {
                   <p className="text-xs text-muted-foreground">
                     Tipo: {selectedNestBox.tipoCaja}
                   </p>
-                  {selectedNestBox.ultimaEspecie && (
+                  {selectedNestBox.inspections && selectedNestBox.inspections.length > 0 && (
                     <p className="text-xs">
-                      Última especie:{" "}
+                      Estado:{" "}
                       <span className="font-medium">
-                        {SPECIES_NAMES[selectedNestBox.ultimaEspecie]}
+                        {selectedNestBox.inspections[0].ocupada ? "Ocupada" : "Vacía"}
                       </span>
                     </p>
                   )}
@@ -225,12 +276,18 @@ export default function MapView() {
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total cajas:</span>
-                  <span className="font-semibold">{nestBoxes?.length || 0}</span>
+                  <span className="font-semibold">{cajasFiltradas?.length || 0}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Ocupadas:</span>
                   <span className="font-semibold">
-                    {nestBoxes?.filter((b: any) => b.estadoActual === "ocupada").length || 0}
+                    {cajasFiltradas?.filter((b: any) => b.inspections?.[0]?.ocupada).length || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Vacías:</span>
+                  <span className="font-semibold">
+                    {cajasFiltradas?.filter((b: any) => !b.inspections?.[0]?.ocupada && b.inspections?.length > 0).length || 0}
                   </span>
                 </div>
               </div>
@@ -238,14 +295,37 @@ export default function MapView() {
           </div>
         </div>
 
+        {/* Toggle Sidebar Button */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-border rounded-r-lg p-2 hover:bg-slate-100 transition-all"
+          style={{ left: sidebarOpen ? "320px" : "0" }}
+        >
+          {sidebarOpen ? (
+            <ChevronLeft className="w-4 h-4" />
+          ) : (
+            <ChevronRight className="w-4 h-4" />
+          )}
+        </button>
+
         {/* Map */}
-        <div className="flex-1">
+        <div className="flex-1 relative">
           {isLoading ? (
             <div className="flex items-center justify-center h-full bg-muted">
               <p className="text-muted-foreground">Cargando mapa...</p>
             </div>
           ) : (
-            <GoogleMapView onMapReady={handleMapReady} className="h-full" initialCenter={{ lat: 40, lng: -3 }} initialZoom={6} />
+            <>
+              <GoogleMapView onMapReady={handleMapReady} className="h-full" initialCenter={{ lat: 38.87, lng: -6.97 }} initialZoom={13} />
+              {/* Geolocation Button */}
+              <button
+                onClick={handleCenterToUser}
+                className="absolute bottom-4 right-4 bg-white border border-border rounded-lg p-3 hover:bg-slate-100 transition-all shadow-lg z-10"
+                title="Centrar en mi ubicación"
+              >
+                <Navigation className="w-5 h-5 text-primary" />
+              </button>
+            </>
           )}
         </div>
       </div>
