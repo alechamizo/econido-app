@@ -5,6 +5,7 @@ import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
+import NavigationDrawer from "./components/NavigationDrawer";
 import Home from "./pages/Home";
 import MapView from "./pages/MapView";
 import InspectionForm from "./pages/InspectionForm";
@@ -52,7 +53,10 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <OfflineIndicator />
-          <Router />
+          <NavigationDrawer />
+          <div className="md:ml-64">
+            <Router />
+          </div>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
