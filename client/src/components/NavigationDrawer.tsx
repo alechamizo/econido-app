@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Map, Box, Zap, BarChart3, History, Settings } from "lucide-react";
+import { Menu, X, Map, Zap, BarChart3, History, Settings } from "lucide-react";
 
 const NAV_ITEMS = [
   { path: "/", label: "Mapa", icon: Map },
-  { path: "/cajas", label: "Cajas", icon: Box },
   { path: "/quick-review", label: "Revisión Rápida", icon: Zap },
   { path: "/dashboard", label: "Dashboard", icon: BarChart3 },
   { path: "/history", label: "Historial", icon: History },
