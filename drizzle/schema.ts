@@ -58,7 +58,7 @@ export const inspections = mysqlTable("inspections", {
   numPollos: int("numPollos").default(0),
   estadoConservacion: mysqlEnum("estadoConservacion", ["bueno", "necesita_reparacion", "caida"]),
   observaciones: text("observaciones"),
-  multimediaUrls: json("multimediaUrls").$type<Array<{url: string; tipo: 'foto' | 'audio'}>>()
+  multimediaUrls: json("multimediaUrls").$type<Array<{url: string; tipo: 'foto' | 'audio' | 'video'}>>()
     .default([]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -74,7 +74,7 @@ export const multimedia = mysqlTable("multimedia", {
   id: int("id").autoincrement().primaryKey(),
   inspectionId: int("inspectionId").notNull(),
   url: varchar("url", { length: 512 }).notNull(),
-  tipo: mysqlEnum("tipo", ["foto", "audio"]).notNull(),
+  tipo: mysqlEnum("tipo", ["foto", "audio", "video"]).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

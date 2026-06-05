@@ -12,9 +12,14 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Download, Filter } from "lucide-react";
+import { ArrowLeft, Download, Filter, X, Play } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 const SPECIES_NAMES: Record<string, string> = {
   cernicalo_vulgar: "Cernícalo vulgar",
@@ -32,6 +37,8 @@ export default function InspectionHistory() {
   const [selectedNestBoxId, setSelectedNestBoxId] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [selectedMedia, setSelectedMedia] = useState<{ url: string; tipo: string } | null>(null);
+  const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
 
   const { data: nestBoxes } = trpc.nestBox.list.useQuery();
   const { data: inspections } = trpc.inspection.list.useQuery();
@@ -104,6 +111,11 @@ export default function InspectionHistory() {
     document.body.removeChild(link);
 
     toast.success("Archivo CSV descargado correctamente");
+  };
+
+  const handleMediaClick = (media: { url: string; tipo: string }) => {
+    setSelectedMedia(media);
+    setMediaDialogOpen(true);
   };
 
   return (
@@ -195,7 +207,7 @@ export default function InspectionHistory() {
             <div className="space-y-4">
               {filteredInspections.map((inspection: any, index: number) => (
                 <Card key={inspection.id} className="p-4 border-l-4 border-l-primary">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold text-foreground">
@@ -246,6 +258,39 @@ export default function InspectionHistory() {
                       )}
                     </div>
 
+                    {/* Multimedia Thumbnail */}
+                    {inspection.multimediaUrls && inspection.multimediaUrls.length > 0 && (
+                      <div className="flex-shrink-0">
+                        <div
+                          className="relative w-24 h-24 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity bg-muted"
+                          onClick={() => handleMediaClick(inspection.multimediaUrls[0])}
+                        >
+                          {inspection.multimediaUrls[0].tipo === "video" ? (
+                            <>
+                              <video
+                                src={inspection.multimediaUrls[0].url}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                <Play className="w-6 h-6 text-white" />
+                              </div>
+                            </>
+                          ) : (
+                            <img
+                              src={inspection.multimediaUrls[0].url}
+                              alt="Foto inspección"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                          {inspection.multimediaUrls.length > 1 && (
+                            <div className="absolute top-1 right-1 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                              +{inspection.multimediaUrls.length - 1}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="text-right text-xs text-muted-foreground">
                       <p>Inspector:</p>
                       <p className="font-medium">{inspection.userId}</p>
@@ -263,6 +308,31 @@ export default function InspectionHistory() {
           )}
         </div>
       </div>
+
+      {/* Media Viewer Dialog */}
+      <Dialog open={mediaDialogOpen} onOpenChange={setMediaDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogClose className="absolute right-4 top-4 z-10" />
+          {selectedMedia && (
+            <div className="w-full">
+              {selectedMedia.tipo === "video" ? (
+                <video
+                  src={selectedMedia.url}
+                  controls
+                  className="w-full h-auto rounded-lg"
+                  autoPlay
+                />
+              ) : (
+                <img
+                  src={selectedMedia.url}
+                  alt="Foto inspección"
+                  className="w-full h-auto rounded-lg"
+                />
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

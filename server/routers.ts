@@ -111,6 +111,10 @@ export const appRouter = router({
           numPollos: z.number().optional(),
           estadoConservacion: z.enum(["bueno", "necesita_reparacion", "caida"]).optional(),
           observaciones: z.string().optional(),
+          multimediaUrls: z.array(z.object({
+            url: z.string(),
+            tipo: z.enum(["foto", "video", "audio"])
+          })).optional(),
         })
       )
       .mutation(({ input, ctx }) => {
