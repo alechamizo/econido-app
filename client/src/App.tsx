@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import NavigationDrawer from "./components/NavigationDrawer";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import Home from "./pages/Home";
 import MapView from "./pages/MapView";
 import InspectionForm from "./pages/InspectionForm";
@@ -54,6 +55,7 @@ function App() {
           <Toaster />
           <OfflineIndicator />
           <NavigationDrawer />
+          <PWAInstallPrompt />
           <div className="md:ml-64">
             <Router />
           </div>
