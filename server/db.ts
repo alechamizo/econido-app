@@ -159,10 +159,26 @@ export async function deleteNestBox(id: number) {
 export async function getInspections(nestBoxId?: number) {
   const db = await getDb();
   if (!db) return [];
+  
+  let inspectionRows: any[] = [];
   if (nestBoxId) {
-    return db.select().from(inspections).where(eq(inspections.nestBoxId, nestBoxId));
+    inspectionRows = await db.select().from(inspections).where(eq(inspections.nestBoxId, nestBoxId));
+  } else {
+    inspectionRows = await db.select().from(inspections);
   }
-  return db.select().from(inspections);
+  
+  // Enriquecer cada inspeccion con datos de la caja nido
+  const enrichedInspections = await Promise.all(
+    inspectionRows.map(async (inspection) => {
+      const nestBox = await getNestBoxById(inspection.nestBoxId);
+      return {
+        ...inspection,
+        nestBox,
+      };
+    })
+  );
+  
+  return enrichedInspections;
 }
 
 export async function getInspectionById(id: number) {

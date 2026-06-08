@@ -211,7 +211,7 @@ export default function InspectionHistory() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold text-foreground">
-                          Caja #{inspection.nestBoxId}
+                          {inspection.nestBox?.cajaId || `Caja #${inspection.nestBoxId}`}
                         </h3>
                         <Badge variant={inspection.ocupada ? "default" : "outline"}>
                           {inspection.ocupada ? "Ocupada" : "Vacía"}
