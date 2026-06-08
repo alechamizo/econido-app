@@ -52,7 +52,15 @@ export default function MapView() {
           });
         },
         (error) => {
-          console.error("Error obteniendo ubicación:", error);
+          let errorMsg = "Error obteniendo ubicación";
+          if (error.code === 1) {
+            errorMsg = "Permiso de ubicación denegado";
+          } else if (error.code === 2) {
+            errorMsg = "Ubicación no disponible";
+          } else if (error.code === 3) {
+            errorMsg = "Tiempo de espera agotado";
+          }
+          console.warn(errorMsg);
         }
       );
     }
