@@ -1,6 +1,6 @@
-const CACHE_NAME = 'econido-v2';
-const RUNTIME_CACHE = 'econido-runtime-v2';
-const API_CACHE = 'econido-api-v2';
+const CACHE_NAME = 'econido-v3';
+const RUNTIME_CACHE = 'econido-runtime-v3';
+const API_CACHE = 'econido-api-v3';
 
 // Assets a cachear en la instalación
 const PRECACHE_ASSETS = [

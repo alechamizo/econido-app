@@ -5,7 +5,7 @@ import { ENV } from './_core/env';
 import { eq, desc, sql } from "drizzle-orm";
 
 let _db: ReturnType<typeof drizzle> | null = null;
-export let _client: ReturnType<typeof postgres> | null = null;
+let _client: ReturnType<typeof postgres> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
@@ -36,7 +36,7 @@ export async function getDb() {
       
       if (connectionString) {
         console.log("[Database] Conectando a:", connectionString.substring(0, 50) + '...');
-        _client = postgres(connectionString);
+        _client = postgres(connectionString, { max: 1 });
         _db = drizzle(_client);
         console.log("[Database] Conectado exitosamente");
       } else {
@@ -101,15 +101,17 @@ export async function getUserByOpenId(openId: string) {
  */
 export async function getNestBoxes() {
   try {
-    // Usar SQL directo para Supabase
-    const client = _client;
-    if (!client) {
-      console.warn('[NestBoxes] No client available');
+    if (!_client) {
+      await getDb();
+    }
+    
+    if (!_client) {
+      console.warn('[NestBoxes] Database not available');
       return [];
     }
     
     console.log('[NestBoxes] Consultando cajas...');
-    const boxes = await client`SELECT * FROM "nestBoxes"`;
+    const boxes = await _client`SELECT * FROM "nestBoxes" ORDER BY "cajaId"`;
     console.log('[NestBoxes] Cajas encontradas:', boxes.length);
     
     // Retornar cajas sin enriquecimiento por ahora
@@ -162,53 +164,47 @@ export async function getInspections(nestBoxId?: number) {
   const db = await getDb();
   if (!db) return [];
   
-  let inspectionRows: any[] = [];
-  
   try {
-    // Usar SQL directo para Supabase
-    const client = _client;
-    if (!client) return [];
+    let inspectionRows: any[] = [];
     
     if (nestBoxId) {
-      // Buscar inspecciones por nestboxid (UUID)
-      inspectionRows = await client`
-        SELECT * FROM "inspections" 
-        WHERE "nestboxid"::text LIKE ${'%' + nestBoxId.toString().padStart(8, '0') + '%'}
-        ORDER BY "fecha" DESC
-      `;
+      // Buscar inspecciones por nestBoxId
+      inspectionRows = await db
+        .select()
+        .from(inspections)
+        .where(eq(inspections.nestBoxId, nestBoxId))
+        .orderBy(desc(inspections.fecha));
     } else {
-      inspectionRows = await client`SELECT * FROM "inspections" ORDER BY "fecha" DESC`;
+      inspectionRows = await db
+        .select()
+        .from(inspections)
+        .orderBy(desc(inspections.fecha));
     }
-  } catch (err: any) {
-    console.error('[Inspections] Error:', err.message);
-    return [];
-  }
-  
-  // Enriquecer cada inspeccion con datos de la caja nido
-  const enrichedInspections = await Promise.all(
-    inspectionRows.map(async (inspection: any) => {
-      let nestBox = null;
-      if (inspection.nestboxid) {
-        // Buscar por UUID en Supabase
-        const client = _client;
-        if (client) {
+    
+    // Enriquecer cada inspeccion con datos de la caja nido
+    const enrichedInspections = await Promise.all(
+      inspectionRows.map(async (inspection: any) => {
+        let nestBox = null;
+        if (inspection.nestBoxId) {
           try {
-            const result = await client`SELECT * FROM "nestBoxes" WHERE id::text LIKE ${'%' + inspection.nestboxid.toString().substring(0, 8) + '%'} LIMIT 1`;
-            nestBox = result.length > 0 ? result[0] : null;
+            nestBox = await getNestBoxById(inspection.nestBoxId);
           } catch (err) {
             // Ignorar errores de búsqueda
           }
         }
-      }
-      
-      return {
-        ...inspection,
-        nestBox,
-      };
-    })
-  );
-  
-  return enrichedInspections;
+        
+        return {
+          ...inspection,
+          nestBox,
+        };
+      })
+    );
+    
+    return enrichedInspections;
+  } catch (err: any) {
+    console.error('[Inspections] Error:', err.message);
+    return [];
+  }
 }
 
 export async function getInspectionById(id: number) {
