@@ -70,7 +70,7 @@ export default function AdminPanel() {
 
   const { data: nestBoxes, isLoading, refetch } = trpc.nestBox.list.useQuery();
   const createNestBox = trpc.nestBox.create.useMutation();
-  // const importGeoJSON = trpc.nestBox.importFromGeoJSON.useMutation();
+  const importGeoJSON = trpc.nestBox.importFromGeoJSON.useMutation();
   const deleteNestBox = trpc.nestBox.delete.useMutation();
 
   // Obtener usuario actual
@@ -128,15 +128,22 @@ export default function AdminPanel() {
     setIsImporting(true);
     try {
       const content = await file.text();
-      const geojson: GeoJSONFeatureCollection = JSON.parse(content);
+      const geojson: any = JSON.parse(content);
 
       if (geojson.type !== "FeatureCollection" || !Array.isArray(geojson.features)) {
         throw new Error("Formato GeoJSON inválido - debe ser un FeatureCollection");
       }
 
+      // Detectar si las coordenadas son UTM
+      const isUTM = geojson.crs?.properties?.name?.includes("25830") || 
+                    geojson.features.some((f: any) => {
+                      const coords = f.geometry.coordinates;
+                      return coords[0] > 180 || coords[1] > 90;
+                    });
+
       // Transformar features a formato esperado
       const nestBoxesToImport = geojson.features
-        .map((feature, idx) => {
+        .map((feature: any, idx: number) => {
           if (feature.geometry.type !== "Point") {
             throw new Error(`Feature ${idx}: La geometría debe ser de tipo Point`);
           }
@@ -145,30 +152,19 @@ export default function AdminPanel() {
           const [longitude, latitude] = feature.geometry.coordinates;
 
           return {
-            cajaId: props.cajaId || props.caja_id || props.id || `Caja_${idx}`,
-            instalacion: props.instalacion || props.installation || "Sin especificar",
-            tipoCaja: props.tipoCaja || props.tipo_caja || props.type || "Estándar",
-            latitude: latitude.toString(),
-            longitude: longitude.toString(),
+            cajaId: props.Etiqueta || props.cajaId || props.caja_id || props.id || `Caja_${idx}`,
+            instalacion: props.PSF || props.instalacion || props.installation || "Sin especificar",
+            tipoCaja: props.Tipo || props.tipoCaja || props.tipo_caja || props.type || "Estándar",
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            isUTM,
           };
         });
 
-      // Por ahora, importar uno por uno
-      let success = 0;
-      let failed = 0;
-      const errors: string[] = [];
-
-      for (const box of nestBoxesToImport) {
-        try {
-          await createNestBox.mutateAsync(box);
-          success++;
-        } catch (err: any) {
-          failed++;
-          errors.push(`${box.cajaId}: ${err.message}`);
-        }
-      }
-
-      const result = { success, failed, errors };
+      // Usar el mutation del servidor para importar
+      const result = await importGeoJSON.mutateAsync({
+        nestBoxes: nestBoxesToImport,
+      });
 
       setImportResults({
         success: result.success,

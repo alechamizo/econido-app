@@ -16,6 +16,7 @@ import {
   updateInspection,
   deleteInspection,
 } from "./db";
+import { utmToLatLon, isValidLatLon } from "./utm-converter";
 
 export const appRouter = router({
   system: systemRouter,
@@ -96,8 +97,9 @@ export const appRouter = router({
               cajaId: z.string(),
               instalacion: z.string(),
               tipoCaja: z.string(),
-              latitude: z.string(),
-              longitude: z.string(),
+              latitude: z.number(),
+              longitude: z.number(),
+              isUTM: z.boolean().optional().default(false),
             })
           ),
         })
@@ -113,12 +115,27 @@ export const appRouter = router({
 
         for (const box of input.nestBoxes) {
           try {
+            let latitude = box.latitude;
+            let longitude = box.longitude;
+
+            // Convertir UTM a lat/lon si es necesario
+            if (box.isUTM) {
+              const converted = utmToLatLon(longitude, latitude);
+              latitude = converted.latitude;
+              longitude = converted.longitude;
+            }
+
+            // Validar que las coordenadas estén en rango válido
+            if (!isValidLatLon(latitude, longitude)) {
+              throw new Error(`Coordenadas inválidas: lat=${latitude}, lon=${longitude}`);
+            }
+
             await createNestBox({
               cajaId: box.cajaId,
               instalacion: box.instalacion,
               tipoCaja: box.tipoCaja,
-              latitude: box.latitude as any,
-              longitude: box.longitude as any,
+              latitude: latitude.toString(),
+              longitude: longitude.toString(),
             });
             success++;
           } catch (error: any) {
