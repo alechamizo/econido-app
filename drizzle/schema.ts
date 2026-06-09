@@ -12,7 +12,7 @@ export const estadoActualEnum = pgEnum("estadoActual", ["ocupada", "vacia", "des
 export const estadoConservacionEnum = pgEnum("estadoConservacion", ["bueno", "necesita_reparacion", "caida"]);
 export const tipoMultimediaEnum = pgEnum("tipoMultimedia", ["foto", "audio", "video"]);
 
-export const users = pgTable("users", {
+export const users = pgTable("app_users", {
   /**
    * Surrogate primary key. Auto-incremented numeric value managed by the database.
    * Use this for relations between tables.
