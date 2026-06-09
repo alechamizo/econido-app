@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Map, Zap, BarChart3, History, Settings } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { Menu, X, Map, Zap, BarChart3, History, Settings, Lock } from "lucide-react";
 
 const NAV_ITEMS = [
   { path: "/", label: "Mapa", icon: Map },
@@ -11,9 +12,14 @@ const NAV_ITEMS = [
   { path: "/settings", label: "Ajustes", icon: Settings },
 ];
 
+const ADMIN_ITEMS = [
+  { path: "/admin", label: "Administrador", icon: Lock },
+];
+
 export default function NavigationDrawer() {
   const [isOpen, setIsOpen] = useState(false);
   const [location] = useLocation();
+  const { user } = useAuth();
 
   const handleNavigation = (path: string) => {
     setIsOpen(false);
@@ -86,6 +92,30 @@ export default function NavigationDrawer() {
               </a>
             );
           })}
+          {user?.role === "admin" && (
+            <>
+              <div className="border-t border-border my-2" />
+              {ADMIN_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = location === item.path;
+                return (
+                  <a
+                    key={item.path}
+                    href={item.path}
+                    onClick={() => handleNavigation(item.path)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      isActive
+                        ? "bg-purple-600 text-white font-semibold"
+                        : "text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </a>
+                );
+              })}
+            </>
+          )}
         </nav>
       </div>
 
@@ -110,6 +140,29 @@ export default function NavigationDrawer() {
               </a>
             );
           })}
+          {user?.role === "admin" && (
+            <>
+              <div className="border-t border-border my-2" />
+              {ADMIN_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = location === item.path;
+                return (
+                  <a
+                    key={item.path}
+                    href={item.path}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      isActive
+                        ? "bg-purple-600 text-white font-semibold"
+                        : "text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                  </a>
+                );
+              })}
+            </>
+          )}
         </nav>
       </div>
     </>

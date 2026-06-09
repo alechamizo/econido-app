@@ -87,6 +87,48 @@ export const appRouter = router({
         }
         return deleteNestBox(input);
       }),
+    
+    importFromGeoJSON: protectedProcedure
+      .input(
+        z.object({
+          nestBoxes: z.array(
+            z.object({
+              cajaId: z.string(),
+              instalacion: z.string(),
+              tipoCaja: z.string(),
+              latitude: z.string(),
+              longitude: z.string(),
+            })
+          ),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user?.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+
+        let success = 0;
+        let failed = 0;
+        const errors: string[] = [];
+
+        for (const box of input.nestBoxes) {
+          try {
+            await createNestBox({
+              cajaId: box.cajaId,
+              instalacion: box.instalacion,
+              tipoCaja: box.tipoCaja,
+              latitude: box.latitude as any,
+              longitude: box.longitude as any,
+            });
+            success++;
+          } catch (error: any) {
+            failed++;
+            errors.push(`${box.cajaId}: ${error.message}`);
+          }
+        }
+
+        return { success, failed, errors };
+      }),
   }),
 
   inspection: router({
