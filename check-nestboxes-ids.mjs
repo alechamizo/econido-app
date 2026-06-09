@@ -1,0 +1,30 @@
+import postgres from 'postgres';
+
+const SUPABASE_DB_PASSWORD = process.env.SUPABASE_DB_PASSWORD;
+const DATABASE_URL = `postgresql://postgres.juqfiuyhddskgodgwihi:${SUPABASE_DB_PASSWORD}@aws-0-eu-west-1.pooler.supabase.com:6543/postgres`;
+
+const sql = postgres(DATABASE_URL);
+
+async function main() {
+  try {
+    console.log('📊 IDs en nestBoxes:\n');
+    const result = await sql`SELECT id, "cajaId" FROM "nestBoxes" LIMIT 5`;
+    console.log(result);
+    
+    console.log('\n📊 Estructura de inspections:\n');
+    const cols = await sql`
+      SELECT column_name, data_type FROM information_schema.columns
+      WHERE table_name = 'inspections'
+      ORDER BY ordinal_position
+    `;
+    for (const col of cols) {
+      console.log(`${col.column_name}: ${col.data_type}`);
+    }
+  } catch (error) {
+    console.error('❌ Error:', error.message);
+  } finally {
+    await sql.end();
+  }
+}
+
+main();
