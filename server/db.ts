@@ -1,4 +1,3 @@
-
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { InsertUser, users, nestBoxes, InsertNestBox, inspections, InsertInspection } from "../drizzle/schema";
@@ -6,7 +5,7 @@ import { ENV } from './_core/env';
 import { eq, desc, sql } from "drizzle-orm";
 
 let _db: ReturnType<typeof drizzle> | null = null;
-let _client: ReturnType<typeof postgres> | null = null;
+export let _client: ReturnType<typeof postgres> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
@@ -52,107 +51,76 @@ export async function getDb() {
   return _db;
 }
 
+/**
+ * User Queries
+ */
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
-
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
-    return;
-  }
+  if (!db) throw new Error("Database not available");
 
-  try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
+  // Try to get existing user
+  const existing = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, user.openId))
+    .limit(1);
 
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    // PostgreSQL upsert using ON CONFLICT
-    await db.insert(users).values(values).onConflictDoUpdate({
-      target: users.openId,
-      set: updateSet,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
-    throw error;
+  if (existing.length > 0) {
+    // Update existing user
+    await db
+      .update(users)
+      .set({
+        name: user.name,
+        email: user.email,
+        loginMethod: user.loginMethod,
+        lastSignedIn: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.openId, user.openId));
+  } else {
+    // Insert new user
+    await db.insert(users).values(user);
   }
 }
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
+  if (!db) return undefined;
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
 /**
- * Nest Box Queries
+ * NestBox Queries
  */
 export async function getNestBoxes() {
-  const db = await getDb();
-  if (!db) return [];
-  
-  // Obtener todas las cajas nido
-  const boxes = await db.select().from(nestBoxes);
-  
-  // Para cada caja, obtener la última inspección
-  const boxesWithInspections = await Promise.all(
-    boxes.map(async (box) => {
-      const lastInspection = await db
-        .select()
-        .from(inspections)
-        .where(eq(inspections.nestBoxId, box.id))
-        .orderBy(desc(inspections.fecha))
-        .limit(1);
-      
-      return {
-        ...box,
-        inspections: lastInspection,
-      };
-    })
-  );
-  
-  return boxesWithInspections;
+  try {
+    // Usar SQL directo para Supabase
+    const client = _client;
+    if (!client) {
+      console.warn('[NestBoxes] No client available');
+      return [];
+    }
+    
+    console.log('[NestBoxes] Consultando cajas...');
+    const boxes = await client`SELECT * FROM "nestBoxes"`;
+    console.log('[NestBoxes] Cajas encontradas:', boxes.length);
+    
+    // Retornar cajas sin enriquecimiento por ahora
+    return boxes.map((box: any) => ({
+      ...box,
+      inspections: [],
+    }));
+  } catch (err: any) {
+    console.error('[NestBoxes] Error:', err.message, err.stack);
+    return [];
+  }
 }
 
 export async function getNestBoxById(id: number) {
@@ -172,8 +140,7 @@ export async function getNestBoxByCajaId(cajaId: string) {
 export async function createNestBox(data: InsertNestBox) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(nestBoxes).values(data);
-  return result;
+  return db.insert(nestBoxes).values(data);
 }
 
 export async function updateNestBox(id: number, data: Partial<InsertNestBox>) {
@@ -196,16 +163,44 @@ export async function getInspections(nestBoxId?: number) {
   if (!db) return [];
   
   let inspectionRows: any[] = [];
-  if (nestBoxId) {
-    inspectionRows = await db.select().from(inspections).where(eq(inspections.nestBoxId, nestBoxId));
-  } else {
-    inspectionRows = await db.select().from(inspections);
+  
+  try {
+    // Usar SQL directo para Supabase
+    const client = _client;
+    if (!client) return [];
+    
+    if (nestBoxId) {
+      // Buscar inspecciones por nestboxid (UUID)
+      inspectionRows = await client`
+        SELECT * FROM "inspections" 
+        WHERE "nestboxid"::text LIKE ${'%' + nestBoxId.toString().padStart(8, '0') + '%'}
+        ORDER BY "fecha" DESC
+      `;
+    } else {
+      inspectionRows = await client`SELECT * FROM "inspections" ORDER BY "fecha" DESC`;
+    }
+  } catch (err: any) {
+    console.error('[Inspections] Error:', err.message);
+    return [];
   }
   
   // Enriquecer cada inspeccion con datos de la caja nido
   const enrichedInspections = await Promise.all(
-    inspectionRows.map(async (inspection) => {
-      const nestBox = await getNestBoxById(inspection.nestBoxId);
+    inspectionRows.map(async (inspection: any) => {
+      let nestBox = null;
+      if (inspection.nestboxid) {
+        // Buscar por UUID en Supabase
+        const client = _client;
+        if (client) {
+          try {
+            const result = await client`SELECT * FROM "nestBoxes" WHERE id::text LIKE ${'%' + inspection.nestboxid.toString().substring(0, 8) + '%'} LIMIT 1`;
+            nestBox = result.length > 0 ? result[0] : null;
+          } catch (err) {
+            // Ignorar errores de búsqueda
+          }
+        }
+      }
+      
       return {
         ...inspection,
         nestBox,
